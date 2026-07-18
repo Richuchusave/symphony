@@ -7,7 +7,7 @@ Symphony is a terminal music player built with Rust, Ratatui, and Crossterm. Sea
 Install Symphony on Linux with one command:
 
 ```sh
-curl --proto '=https' --tlsv1.2 -LsSf https://raw.githubusercontent.com/Richuchusave/symphony/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Richuchusave/symphony/main/install.sh | sh
 ```
 
 The installer downloads the correct prebuilt binary for x86-64 or ARM64, verifies its checksum, installs `yt-dlp`, and installs `mpv` through a supported Linux package manager when necessary. No Rust toolchain is required. Open a new terminal if the installer adds `~/.local/bin` to your `PATH`, then run:
@@ -21,7 +21,7 @@ On first launch, Symphony creates its configuration and data directories using t
 To install somewhere else or pin a release, set `SYMPHONY_INSTALL_DIR` or `SYMPHONY_VERSION`:
 
 ```sh
-curl --proto '=https' --tlsv1.2 -LsSf https://raw.githubusercontent.com/Richuchusave/symphony/main/install.sh | SYMPHONY_VERSION=v0.1.0 sh
+curl -fsSL https://raw.githubusercontent.com/Richuchusave/symphony/main/install.sh | SYMPHONY_VERSION=v0.1.0 sh
 ```
 
 ## Controls
