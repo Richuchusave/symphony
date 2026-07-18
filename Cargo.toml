@@ -6,7 +6,7 @@ rust-version = "1.88"
 description = "A universal terminal music player with support for multiple providers"
 authors = ["Symphony Contributors"]
 license = "MIT"
-repository = "https://github.com/symphony-player/symphony"
+repository = "https://github.com/Richuchusave/symphony"
 keywords = ["music", "player", "terminal", "tui", "ratatui"]
 categories = ["command-line-utilities", "multimedia"]
 

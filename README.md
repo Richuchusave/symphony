@@ -4,20 +4,25 @@ Symphony is a terminal music player built with Rust, Ratatui, and Crossterm. Sea
 
 ## Quick start
 
-Install the Linux audio development package and Rust 1.88 or newer, then install Symphony as a user command:
+Install Symphony on Linux with one command:
 
 ```sh
-sudo apt install pulseaudio pulseaudio-utils alsa-utils libasound2-dev pkg-config mpv
+curl --proto '=https' --tlsv1.2 -LsSf https://raw.githubusercontent.com/Richuchusave/symphony/main/install.sh | sh
 ```
 
-Install a current `yt-dlp` release in `~/.local/bin`; Symphony uses it for public search and stream extraction.
+The installer downloads the correct prebuilt binary for x86-64 or ARM64, verifies its checksum, installs `yt-dlp`, and installs `mpv` through a supported Linux package manager when necessary. No Rust toolchain is required. Open a new terminal if the installer adds `~/.local/bin` to your `PATH`, then run:
 
 ```sh
-cargo install --path . --locked --root ~/.local
 symphony
 ```
 
 On first launch, Symphony creates its configuration and data directories using the platform defaults. YouTube is the default provider and does not require authentication.
+
+To install somewhere else or pin a release, set `SYMPHONY_INSTALL_DIR` or `SYMPHONY_VERSION`:
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://raw.githubusercontent.com/Richuchusave/symphony/main/install.sh | SYMPHONY_VERSION=v0.1.0 sh
+```
 
 ## Controls
 
@@ -48,6 +53,8 @@ cargo test --all-features --locked
 ```
 
 CI runs the same checks. Build artifacts belong in `target/` and are intentionally excluded from version control.
+
+Pushing a `v*` tag builds checksum-verified Linux x86-64 and ARM64 archives and publishes them as a GitHub release. The public installer always selects the latest release unless `SYMPHONY_VERSION` is set.
 
 ## Project structure
 
