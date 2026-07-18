@@ -5,27 +5,22 @@ use glob::glob;
 use std::collections::HashMap;
 use std::path::Path;
 use std::time::Duration;
-use uuid::Uuid;
 
 use crate::config::LocalProviderConfig;
 use crate::errors::*;
 use crate::provider::traits::MusicProvider;
 use crate::types::*;
 
-fn generate_id() -> String {
-    Uuid::new_v4().to_string()
-}
-
 fn path_to_track_id(path: &Path) -> String {
     format!("local:{}", path.to_string_lossy())
 }
 
 fn path_to_album_id(album: &str, artist: &str) -> String {
-    format!("local:album:{}/{}", artist, album)
+    format!("local:album:{artist}/{album}")
 }
 
 fn path_to_artist_id(artist: &str) -> String {
-    format!("local:artist:{}", artist)
+    format!("local:artist:{artist}")
 }
 
 fn read_metadata(path: &Path) -> Result<(String, String, String, Duration)> {
@@ -35,13 +30,10 @@ fn read_metadata(path: &Path) -> Result<(String, String, String, Duration)> {
         .unwrap_or("")
         .to_lowercase();
 
-    let supported = [
-        "mp3", "flac", "wav", "ogg", "aac", "m4a", "opus",
-    ];
+    let supported = ["mp3", "flac", "wav", "ogg", "aac", "m4a", "opus"];
     if !supported.contains(&file_ext.as_str()) {
         return Err(SymphonyError::unsupported(format!(
-            "Unsupported file extension: {}",
-            file_ext
+            "Unsupported file extension: {file_ext}"
         )));
     }
 
@@ -151,7 +143,7 @@ impl std::fmt::Debug for LocalProvider {
 
 impl LocalProvider {
     pub fn new(config: &LocalProviderConfig) -> Self {
-        let id = generate_id();
+        let id = "local".to_string();
         Self {
             id,
             name: "Local Files".to_string(),
@@ -176,9 +168,9 @@ impl LocalProvider {
                 format!("{}/*", dir.to_string_lossy())
             };
 
-            for entry in glob(&pattern).map_err(|e| {
-                SymphonyError::playback(format!("Invalid glob pattern: {e}"))
-            })? {
+            for entry in glob(&pattern)
+                .map_err(|e| SymphonyError::playback(format!("Invalid glob pattern: {e}")))?
+            {
                 match entry {
                     Ok(path) => {
                         if !path.is_file() {
@@ -209,7 +201,7 @@ impl LocalProvider {
                                 });
 
                                 let file_path = path.to_string_lossy().to_string();
-                                let stream_url = format!("file://{}", file_path);
+                                let stream_url = format!("file://{file_path}");
 
                                 tracks.insert(
                                     track_id.clone(),
@@ -293,6 +285,14 @@ impl LocalProvider {
         scored.sort_by_key(|b| std::cmp::Reverse(b.0));
         scored.into_iter().map(|(_, item)| item.clone()).collect()
     }
+
+    fn page<T>(items: Vec<T>, limit: u32, offset: u32) -> Vec<T> {
+        items
+            .into_iter()
+            .skip(offset as usize)
+            .take(limit as usize)
+            .collect()
+    }
 }
 
 #[async_trait]
@@ -330,21 +330,21 @@ impl MusicProvider for LocalProvider {
         self.tracks
             .get(id)
             .cloned()
-            .ok_or_else(|| SymphonyError::not_found(format!("Track '{}' not found", id)))
+            .ok_or_else(|| SymphonyError::not_found(format!("Track '{id}' not found")))
     }
 
     async fn album(&self, id: &AlbumId) -> Result<Album> {
         self.albums
             .get(id)
             .cloned()
-            .ok_or_else(|| SymphonyError::not_found(format!("Album '{}' not found", id)))
+            .ok_or_else(|| SymphonyError::not_found(format!("Album '{id}' not found")))
     }
 
     async fn artist(&self, id: &ArtistId) -> Result<Artist> {
         self.artists
             .get(id)
             .cloned()
-            .ok_or_else(|| SymphonyError::not_found(format!("Artist '{}' not found", id)))
+            .ok_or_else(|| SymphonyError::not_found(format!("Artist '{id}' not found")))
     }
 
     async fn artist_albums(&self, id: &ArtistId) -> Result<Vec<Album>> {
@@ -372,42 +372,38 @@ impl MusicProvider for LocalProvider {
         self.playlists
             .get(id)
             .cloned()
-            .ok_or_else(|| SymphonyError::not_found(format!("Playlist '{}' not found", id)))
+            .ok_or_else(|| SymphonyError::not_found(format!("Playlist '{id}' not found")))
     }
 
     async fn resolve_stream_url(&self, track: &Track) -> Result<String> {
-        track
-            .stream_url
-            .clone()
-            .ok_or_else(|| SymphonyError::not_found(format!("No stream URL for track '{}'", track.id)))
+        track.stream_url.clone().ok_or_else(|| {
+            SymphonyError::not_found(format!("No stream URL for track '{}'", track.id))
+        })
     }
 
     async fn search_tracks(&self, query: &str, limit: u32, offset: u32) -> Result<Vec<Track>> {
         let results = Self::fuzzy_search(&self.tracks, query, |t| &t.title);
-        let start = offset as usize;
-        let end = (start + limit as usize).min(results.len());
-        Ok(results[start..end].to_vec())
+        Ok(Self::page(results, limit, offset))
     }
 
     async fn search_albums(&self, query: &str, limit: u32, offset: u32) -> Result<Vec<Album>> {
         let results = Self::fuzzy_search(&self.albums, query, |a| &a.title);
-        let start = offset as usize;
-        let end = (start + limit as usize).min(results.len());
-        Ok(results[start..end].to_vec())
+        Ok(Self::page(results, limit, offset))
     }
 
     async fn search_artists(&self, query: &str, limit: u32, offset: u32) -> Result<Vec<Artist>> {
         let results = Self::fuzzy_search(&self.artists, query, |a| &a.name);
-        let start = offset as usize;
-        let end = (start + limit as usize).min(results.len());
-        Ok(results[start..end].to_vec())
+        Ok(Self::page(results, limit, offset))
     }
 
-    async fn search_playlists(&self, _query: &str, limit: u32, offset: u32) -> Result<Vec<Playlist>> {
+    async fn search_playlists(
+        &self,
+        _query: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<Playlist>> {
         let results: Vec<Playlist> = self.playlists.values().cloned().collect();
-        let start = offset as usize;
-        let end = (start + limit as usize).min(results.len());
-        Ok(results[start..end].to_vec())
+        Ok(Self::page(results, limit, offset))
     }
 
     async fn browse_new_releases(&self, limit: u32) -> Result<Vec<Album>> {

@@ -1,9 +1,11 @@
-mod traits;
-mod registry;
-mod mock;
 mod local;
+mod mock;
+mod registry;
+mod traits;
+mod youtube;
 
-pub use traits::MusicProvider;
-pub use registry::ProviderRegistry;
-pub use mock::MockProvider;
 pub use local::LocalProvider;
+pub use mock::MockProvider;
+pub use registry::ProviderRegistry;
+pub use traits::MusicProvider;
+pub use youtube::YouTubeProvider;

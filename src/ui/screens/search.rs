@@ -26,6 +26,24 @@ impl SearchScreen {
                     .border_style(border_style),
             );
         f.render_widget(input, chunks[0]);
+        if state.search_focused {
+            let cursor_x = chunks[0]
+                .x
+                .saturating_add(1)
+                .saturating_add(state.search_query.chars().count() as u16)
+                .min(chunks[0].right().saturating_sub(2));
+            f.set_cursor_position((cursor_x, chunks[0].y.saturating_add(1)));
+        }
+
+        if state.search_query.is_empty() {
+            let hint = Paragraph::new(
+                " Type a search and press Enter. Use j/k to select a track, then Enter to play.",
+            )
+            .style(Style::default().fg(Color::DarkGray))
+            .block(Block::default().borders(Borders::ALL));
+            f.render_widget(hint, chunks[1]);
+            return;
+        }
 
         if state.search_results.total_results == 0 && !state.search_query.is_empty() {
             let empty = Paragraph::new(" No results found")
@@ -49,9 +67,14 @@ impl SearchScreen {
                 .search_results
                 .tracks
                 .iter()
-                .map(|t| {
-                    Line::from(format!(" \u{266b} {} \u{2014} {}", t.artist, t.title))
-                        .style(Style::default().fg(Color::White))
+                .enumerate()
+                .map(|(index, t)| {
+                    let style = if !state.search_focused && index == state.selected_index {
+                        Style::default().fg(Color::Black).bg(Color::Cyan).bold()
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+                    Line::from(format!(" \u{266b} {} \u{2014} {}", t.artist, t.title)).style(style)
                 })
                 .collect();
             let tracks = Paragraph::new(track_lines)

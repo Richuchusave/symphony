@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use std::io;
@@ -11,7 +11,7 @@ use crate::db::Database;
 use crate::errors::*;
 use crate::playback::{create_playback_engine, PlaybackEngine, PlaybackQueue};
 use crate::plugin::PluginManager;
-use crate::provider::{LocalProvider, MockProvider, ProviderRegistry};
+use crate::provider::{LocalProvider, MockProvider, ProviderRegistry, YouTubeProvider};
 use crate::state::{create_shared_state, AppState, SharedState};
 use crate::theme::Theme;
 use crate::types::*;
@@ -52,14 +52,17 @@ impl Application {
             s.config = config.clone();
         }
 
-        let theme = Theme::from_name(&config.theme.name)
-            .unwrap_or_else(|_| Theme::default());
+        let theme = Theme::from_name(&config.theme.name).unwrap_or_else(|_| Theme::default());
 
-        let engine = create_playback_engine(&config);
+        let mut engine = create_playback_engine(&config);
+        engine.set_volume(config.playback.volume);
 
         let mut queue = PlaybackQueue::new();
 
         let mut registry = ProviderRegistry::new();
+        registry.register(Box::new(YouTubeProvider::new(
+            config.providers.youtube_music.clone().unwrap_or_default(),
+        )));
         registry.register(Box::new(MockProvider::new()));
         {
             let local_config = config.providers.local.clone();
@@ -68,19 +71,46 @@ impl Application {
             registry.register(Box::new(local));
         }
 
+        let requested_provider = config.general.default_provider.clone();
+        if registry.set_active(&requested_provider).is_err() {
+            let fallback = "mock".to_string();
+            let _ = registry.set_active(&fallback);
+        }
+
+        let initial_library = registry.active().search("", 10_000, 0).await.ok();
+
         {
             let mut s = state.write();
             s.available_providers = registry.list_ids();
             s.active_provider = registry.active().id();
+            s.playback.volume = config.playback.volume.clamp(0.0, 1.0);
+            if let Some(results) = initial_library {
+                s.library.tracks = results
+                    .tracks
+                    .into_iter()
+                    .map(|track| (track.id.clone(), track))
+                    .collect();
+                s.library.albums = results
+                    .albums
+                    .into_iter()
+                    .map(|album| (album.id.clone(), album))
+                    .collect();
+                s.library.artists = results
+                    .artists
+                    .into_iter()
+                    .map(|artist| (artist.id.clone(), artist))
+                    .collect();
+                s.library.playlists = results
+                    .playlists
+                    .into_iter()
+                    .map(|playlist| (playlist.id.clone(), playlist))
+                    .collect();
+            }
         }
 
         let mut plugin_manager = PluginManager::new();
-        let _ = plugin_manager.register(Box::new(
-            crate::plugin::manager::SimpleLoggerPlugin,
-        ));
-        let _ = plugin_manager.register(Box::new(
-            crate::plugin::manager::TickCounterPlugin::new(),
-        ));
+        let _ = plugin_manager.register(Box::new(crate::plugin::manager::SimpleLoggerPlugin));
+        let _ = plugin_manager.register(Box::new(crate::plugin::manager::TickCounterPlugin::new()));
 
         let db = Database::new(&config.general.data_dir.join("symphony.db")).ok();
 
@@ -141,54 +171,69 @@ impl Application {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        let mut terminal = init_terminal()?;
+        let (mut terminal, terminal_guard) = init_terminal()?;
 
-        let mut last_tick = tokio::time::Instant::now();
+        let run_result: Result<()> = async {
+            let mut last_tick = tokio::time::Instant::now();
 
-        loop {
-            let state = self.state.read().clone();
-            terminal.draw(|f| {
-                self.render(f, &state);
-            })?;
+            loop {
+                let state = self.state.read().clone();
+                terminal.draw(|f| {
+                    self.render(f, &state);
+                })?;
 
-            let tick_duration = self.tick_interval;
+                let tick_duration = self.tick_interval;
 
-            if event::poll(
-                tick_duration
-                    .checked_sub(tokio::time::Instant::now().duration_since(last_tick))
-                    .unwrap_or(Duration::ZERO),
-            )? {
-                match event::read()? {
-                    Event::Key(key) => {
-                        let action = handle_key(key);
-                        if self.handle_action(action).await {
-                            break;
+                if event::poll(
+                    tick_duration
+                        .checked_sub(tokio::time::Instant::now().duration_since(last_tick))
+                        .unwrap_or(Duration::ZERO),
+                )? {
+                    match event::read()? {
+                        Event::Key(key) => {
+                            let search_focused = self.state.read().search_focused;
+                            let action = if search_focused {
+                                match (key.modifiers, key.code) {
+                                    (
+                                        KeyModifiers::NONE | KeyModifiers::SHIFT,
+                                        KeyCode::Char(c),
+                                    ) => Action::Input(c),
+                                    _ => handle_key(key),
+                                }
+                            } else {
+                                handle_key(key)
+                            };
+                            if self.handle_action(action).await {
+                                break;
+                            }
                         }
-                    }
-                    Event::Mouse(mouse) => {
-                        let action = handle_mouse(mouse);
-                        if self.handle_action(action).await {
-                            break;
+                        Event::Mouse(mouse) => {
+                            let action = handle_mouse(mouse);
+                            if self.handle_action(action).await {
+                                break;
+                            }
                         }
+                        Event::Resize(w, h) => {
+                            self.dispatch_event(AppEvent::Resize(w, h)).await;
+                        }
+                        _ => {}
                     }
-                    Event::Resize(w, h) => {
-                        self.dispatch_event(AppEvent::Resize(w, h)).await;
-                    }
-                    _ => {}
                 }
-            }
 
-            if last_tick.elapsed() >= tick_duration {
-                self.tick().await;
-                last_tick = tokio::time::Instant::now();
-            }
+                if last_tick.elapsed() >= tick_duration {
+                    self.tick().await;
+                    last_tick = tokio::time::Instant::now();
+                }
 
-            self.process_events().await;
+                self.process_events().await;
+            }
+            Ok(())
         }
+        .await;
 
-        restore_terminal()?;
+        drop(terminal_guard);
         self.shutdown().await;
-        Ok(())
+        run_result
     }
 
     fn render(&self, f: &mut ratatui::Frame, state: &AppState) {
@@ -226,13 +271,22 @@ impl Application {
             Action::ToggleRepeat => self.cmd_toggle_repeat(),
             Action::ShowQueue => self.cmd_show_queue(),
             Action::Help => self.cmd_help(),
+            Action::Input(c) => {
+                let mut state = self.state.write();
+                if state.search_focused {
+                    state.search_query.push(c);
+                }
+            }
+            Action::Delete => {
+                let mut state = self.state.write();
+                if state.search_focused {
+                    state.search_query.pop();
+                }
+            }
             Action::MouseClick(x, y) => {
-                let sidebar_width = {
-                    let state = self.state.read();
-                    state.config.ui.sidebar_width
-                };
+                let (width, height) = crossterm::terminal::size().unwrap_or((80, 24));
                 let rects = self.layout.render_area(
-                    ratatui::prelude::Rect::new(0, 0, sidebar_width, 0),
+                    ratatui::prelude::Rect::new(0, 0, width, height),
                     &self.state.read().config,
                 );
                 if self.layout.sidebar_visible {
@@ -295,9 +349,7 @@ impl Application {
     }
 
     async fn tick(&mut self) {
-        self.plugin_manager
-            .tick_all(&mut self.state.write())
-            .await;
+        self.plugin_manager.tick_all(&mut self.state.write()).await;
 
         {
             let mut state = self.state.write();
@@ -350,7 +402,7 @@ impl Application {
         if let Some(track_id) = self.queue.next() {
             {
                 let mut state = self.state.write();
-                state.queue = self.queue.queue_from_current();
+                state.queue = self.queue.tracks.clone();
                 state.queue_index = self.queue.current_index;
             }
             self.play_track(track_id).await;
@@ -361,7 +413,7 @@ impl Application {
         if let Some(track_id) = self.queue.previous() {
             {
                 let mut state = self.state.write();
-                state.queue = self.queue.queue_from_current();
+                state.queue = self.queue.tracks.clone();
                 state.queue_index = self.queue.current_index;
             }
             self.play_track(track_id).await;
@@ -404,15 +456,78 @@ impl Application {
     }
 
     async fn cmd_enter(&mut self) {
-        let state = self.state.read();
-        if let Screen::Search = state.current_screen {
-            let query = state.search_query.clone();
-            let provider_id = state.active_provider.clone();
-            drop(state);
-            if !query.is_empty() {
-                self.search(query, provider_id).await;
+        let (screen, search_focused, query, provider_id, selected_index) = {
+            let state = self.state.read();
+            (
+                state.current_screen.clone(),
+                state.search_focused,
+                state.search_query.clone(),
+                state.active_provider.clone(),
+                state.selected_index,
+            )
+        };
+
+        match screen {
+            Screen::Search if search_focused => {
+                self.state.write().search_focused = false;
+                if !query.trim().is_empty() {
+                    self.search(query, provider_id).await;
+                }
             }
+            Screen::Search => {
+                let track = self
+                    .state
+                    .read()
+                    .search_results
+                    .tracks
+                    .get(selected_index)
+                    .cloned();
+                if let Some(track) = track {
+                    self.enqueue_and_play(track).await;
+                }
+            }
+            Screen::Library => {
+                let mut tracks: Vec<_> =
+                    self.state.read().library.tracks.values().cloned().collect();
+                tracks.sort_by(|a, b| a.artist.cmp(&b.artist).then(a.title.cmp(&b.title)));
+                if let Some(track) = tracks.get(selected_index).cloned() {
+                    self.enqueue_and_play(track).await;
+                }
+            }
+            Screen::Queue => {
+                if let Some(track_id) = self.queue.play_index(selected_index).cloned() {
+                    {
+                        let mut state = self.state.write();
+                        state.queue = self.queue.tracks.clone();
+                        state.queue_index = self.queue.current_index;
+                    }
+                    self.play_track(track_id).await;
+                }
+            }
+            _ => {}
         }
+    }
+
+    async fn enqueue_and_play(&mut self, track: Track) {
+        let index = self
+            .queue
+            .tracks
+            .iter()
+            .position(|track_id| track_id == &track.id)
+            .unwrap_or_else(|| {
+                self.queue.add(track.id.clone());
+                self.queue.len() - 1
+            });
+        let _ = self.queue.play_index(index);
+
+        {
+            let mut state = self.state.write();
+            state.track_cache.insert(track.id.clone(), track.clone());
+            state.queue = self.queue.tracks.clone();
+            state.queue_index = self.queue.current_index;
+        }
+
+        self.play_track(track.id).await;
     }
 
     fn cmd_back(&mut self) {
@@ -503,45 +618,57 @@ impl Application {
                     self.dispatch_event(AppEvent::Error(e.to_string())).await;
                 }
             }
+        } else {
+            self.dispatch_event(AppEvent::Error(format!(
+                "Provider '{provider_id}' is not available"
+            )))
+            .await;
         }
     }
 
     async fn play_track(&mut self, track_id: TrackId) {
-        let stream_url = {
-            let state = self.state.read();
-            let provider = self.registry.get(&state.active_provider);
-            match provider {
-                Some(p) => {
-                    match p.track(&track_id).await {
-                        Ok(track) => {
-                            p.resolve_stream_url(&track).await.ok()
-                        }
-                        Err(_) => None,
-                    }
-                }
-                None => None,
+        let provider_id = self.state.read().active_provider.clone();
+        let Some(provider) = self.registry.get(&provider_id) else {
+            self.dispatch_event(AppEvent::Error(format!(
+                "Provider '{provider_id}' is not available"
+            )))
+            .await;
+            return;
+        };
+        let track = match provider.track(&track_id).await {
+            Ok(track) => track,
+            Err(error) => {
+                self.dispatch_event(AppEvent::Error(error.to_string()))
+                    .await;
+                return;
+            }
+        };
+        let stream_url = match provider.resolve_stream_url(&track).await {
+            Ok(url) => url,
+            Err(error) => {
+                self.dispatch_event(AppEvent::Error(error.to_string()))
+                    .await;
+                return;
             }
         };
 
-        if let Some(url) = stream_url {
-            let _ = self.engine.play(&track_id, &url).await;
-            let mut state = self.state.write();
-            state.playback.status = PlaybackStatus::Playing;
-            state.playback.current_track_id = Some(track_id.clone());
-            state.playback.position = Duration::ZERO;
-            state.queue = self.queue.queue_from_current();
-            state.queue_index = self.queue.current_index;
+        match self.engine.play(&track_id, &stream_url).await {
+            Ok(()) => {
+                let mut state = self.state.write();
+                state.playback.status = PlaybackStatus::Playing;
+                state.playback.current_track_id = Some(track_id.clone());
+                state.playback.position = Duration::ZERO;
+                state.queue = self.queue.tracks.clone();
+                state.queue_index = self.queue.current_index;
+                state.track_cache.insert(track_id.clone(), track);
 
-            if !state.track_cache.contains_key(&track_id) {
-                if let Some(provider) = self.registry.get(&state.active_provider) {
-                    if let Ok(track) = provider.track(&track_id).await {
-                        state.track_cache.insert(track_id.clone(), track);
-                    }
-                }
+                drop(state);
+                self.dispatch_event(AppEvent::TrackChanged(track_id)).await;
             }
-
-            drop(state);
-            self.dispatch_event(AppEvent::TrackChanged(track_id)).await;
+            Err(error) => {
+                self.dispatch_event(AppEvent::Error(error.to_string()))
+                    .await;
+            }
         }
     }
 
@@ -558,8 +685,17 @@ impl Application {
     }
 }
 
-fn init_terminal() -> Result<Terminal<CrosstermBackend<io::Stdout>>> {
+struct TerminalGuard;
+
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        let _ = restore_terminal();
+    }
+}
+
+fn init_terminal() -> Result<(Terminal<CrosstermBackend<io::Stdout>>, TerminalGuard)> {
     crossterm::terminal::enable_raw_mode()?;
+    let guard = TerminalGuard;
     let mut stdout = io::stdout();
     crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
     crossterm::execute!(stdout, crossterm::event::EnableMouseCapture)?;
@@ -567,7 +703,7 @@ fn init_terminal() -> Result<Terminal<CrosstermBackend<io::Stdout>>> {
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
     terminal.hide_cursor()?;
-    Ok(terminal)
+    Ok((terminal, guard))
 }
 
 fn restore_terminal() -> Result<()> {
@@ -575,7 +711,61 @@ fn restore_terminal() -> Result<()> {
         io::stdout(),
         crossterm::event::DisableMouseCapture,
         crossterm::terminal::LeaveAlternateScreen,
+        crossterm::cursor::Show,
     )?;
     crossterm::terminal::disable_raw_mode()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_config() -> (Config, std::path::PathBuf) {
+        let root = std::env::temp_dir().join(format!(
+            "symphony-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut config = Config::default();
+        config.general.data_dir = root.join("data");
+        config.general.config_dir = root.join("config");
+        config.general.cache_dir = root.join("cache");
+        config.general.default_provider = "mock".to_string();
+        config.providers.local.music_directories.clear();
+        (config, root)
+    }
+
+    #[tokio::test]
+    async fn search_result_can_be_selected_and_played() {
+        let (config, root) = test_config();
+        let mut app = Application::new(config).await.unwrap();
+
+        assert_eq!(app.state.read().active_provider, "mock");
+        assert!(!app.state.read().library.tracks.is_empty());
+
+        app.cmd_focus_search();
+        for character in "Digital".chars() {
+            app.handle_action(Action::Input(character)).await;
+        }
+        app.cmd_enter().await;
+        app.process_events().await;
+
+        assert!(!app.state.read().search_results.tracks.is_empty());
+        app.cmd_enter().await;
+
+        {
+            let state = app.state.read();
+            assert_eq!(state.playback.status, PlaybackStatus::Playing);
+            assert_eq!(state.queue.len(), 1);
+            assert_eq!(state.queue_index, Some(0));
+        }
+
+        app.shutdown().await;
+        drop(app);
+        let _ = std::fs::remove_dir_all(root);
+    }
 }

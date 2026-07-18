@@ -71,7 +71,7 @@ impl PlaybackQueue {
     }
 
     pub fn move_track(&mut self, from: usize, to: usize) {
-        if from >= self.tracks.len() || to > self.tracks.len() {
+        if from >= self.tracks.len() || to >= self.tracks.len() || from == to {
             return;
         }
         let track = self.tracks.remove(from);
@@ -119,26 +119,24 @@ impl PlaybackQueue {
                     }
                 }
             }
-            RepeatMode::Off => {
-                match self.current_index {
-                    None => {
-                        if self.tracks.is_empty() {
-                            return None;
-                        }
-                        self.current_index = Some(0);
-                        self.tracks.first().cloned()
+            RepeatMode::Off => match self.current_index {
+                None => {
+                    if self.tracks.is_empty() {
+                        return None;
                     }
-                    Some(i) => {
-                        let next = i + 1;
-                        if next >= self.tracks.len() {
-                            self.current_index = None;
-                            return None;
-                        }
-                        self.current_index = Some(next);
-                        Some(self.tracks[next].clone())
-                    }
+                    self.current_index = Some(0);
+                    self.tracks.first().cloned()
                 }
-            }
+                Some(i) => {
+                    let next = i + 1;
+                    if next >= self.tracks.len() {
+                        self.current_index = None;
+                        return None;
+                    }
+                    self.current_index = Some(next);
+                    Some(self.tracks[next].clone())
+                }
+            },
         }
     }
 
@@ -147,7 +145,9 @@ impl PlaybackQueue {
             return None;
         }
         let indices = self.shuffle_indices();
-        let current_pos = self.current_index.and_then(|i| indices.iter().position(|&x| x == i));
+        let current_pos = self
+            .current_index
+            .and_then(|i| indices.iter().position(|&x| x == i));
 
         match self.repeat {
             RepeatMode::One => self.current().cloned(),
@@ -253,5 +253,59 @@ impl PlaybackQueue {
                 self.tracks[i..].to_vec()
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn queue() -> PlaybackQueue {
+        let mut queue = PlaybackQueue::new();
+        for id in ["one", "two", "three"] {
+            queue.add(id.to_string());
+        }
+        queue
+    }
+
+    #[test]
+    fn sequential_navigation_stops_at_the_end() {
+        let mut queue = queue();
+
+        assert_eq!(queue.next().as_deref(), Some("one"));
+        assert_eq!(queue.next().as_deref(), Some("two"));
+        assert_eq!(queue.next().as_deref(), Some("three"));
+        assert_eq!(queue.next(), None);
+        assert_eq!(queue.current_index, None);
+    }
+
+    #[test]
+    fn repeat_all_wraps_to_the_first_track() {
+        let mut queue = queue();
+        queue.repeat = RepeatMode::All;
+        queue.play_index(2);
+
+        assert_eq!(queue.next().as_deref(), Some("one"));
+        assert_eq!(queue.current_index, Some(0));
+    }
+
+    #[test]
+    fn moving_tracks_preserves_the_current_track() {
+        let mut queue = queue();
+        queue.play_index(2);
+        queue.move_track(0, 2);
+
+        assert_eq!(queue.tracks, ["two", "three", "one"]);
+        assert_eq!(queue.current().map(String::as_str), Some("three"));
+    }
+
+    #[test]
+    fn an_out_of_bounds_move_is_ignored() {
+        let mut queue = queue();
+        let original = queue.tracks.clone();
+
+        queue.move_track(0, queue.len());
+
+        assert_eq!(queue.tracks, original);
     }
 }

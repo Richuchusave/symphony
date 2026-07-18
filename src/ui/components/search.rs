@@ -27,14 +27,14 @@ impl SearchInput {
         if state.search_focused {
             let cursor_x = area.x + state.search_query.len() as u16 + 1;
             let cursor_y = area.y + 1;
-            f.set_cursor_position(Position::new(cursor_x.min(area.x + area.width.saturating_sub(2)), cursor_y));
+            f.set_cursor_position(Position::new(
+                cursor_x.min(area.x + area.width.saturating_sub(2)),
+                cursor_y,
+            ));
         }
     }
 
     pub fn handle_mouse_click(&self, x: u16, y: u16, area: Rect) -> bool {
-        x >= area.x
-            && x < area.x + area.width
-            && y >= area.y
-            && y < area.y + area.height
+        x >= area.x && x < area.x + area.width && y >= area.y && y < area.y + area.height
     }
 }

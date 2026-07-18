@@ -1,5 +1,5 @@
-pub mod traits;
 pub mod manager;
+pub mod traits;
 
-pub use traits::{Plugin, PluginCategory, PluginDefaults};
 pub use manager::PluginManager;
+pub use traits::{Plugin, PluginCategory, PluginDefaults};

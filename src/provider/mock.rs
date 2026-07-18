@@ -1,24 +1,17 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use rand::Rng;
 use std::time::Duration;
-use uuid::Uuid;
 
 use crate::errors::*;
 use crate::provider::traits::MusicProvider;
 use crate::types::*;
 
-fn generate_id() -> String {
-    Uuid::new_v4().to_string()
-}
-
-fn random_duration() -> Duration {
-    let mut rng = rand::thread_rng();
-    Duration::from_secs(rng.gen_range(180..=300))
+fn track_duration(album_index: usize, track_index: usize) -> Duration {
+    Duration::from_secs(180 + ((album_index * 37 + track_index * 19) % 121) as u64)
 }
 
 fn make_cover_url(seed: &str) -> String {
-    format!("https://picsum.photos/seed/{}/300/300", seed)
+    format!("https://picsum.photos/seed/{seed}/300/300")
 }
 
 const MOCK_ARTISTS: &[(&str, &[&str])] = &[
@@ -63,7 +56,7 @@ impl Default for MockProvider {
 
 impl MockProvider {
     pub fn new() -> Self {
-        let id = generate_id();
+        let id = "mock".to_string();
         let provider_id = id.clone();
         let name = "Mock Provider".to_string();
 
@@ -71,7 +64,7 @@ impl MockProvider {
             .iter()
             .enumerate()
             .map(|(i, (name, genres))| Artist {
-                id: generate_id(),
+                id: format!("mock:artist:{i}"),
                 name: name.to_string(),
                 image_url: Some(make_cover_url(name)),
                 genres: genres.iter().map(|g| g.to_string()).collect(),
@@ -80,18 +73,18 @@ impl MockProvider {
             })
             .collect();
 
-        let mut rng = rand::thread_rng();
         let mut tracks = Vec::new();
         let mut albums = Vec::new();
 
         for (album_idx, (album_title, artist_idx, _genre)) in MOCK_ALBUMS.iter().enumerate() {
             let artist = &artists[*artist_idx];
-            let album_id = generate_id();
-            let track_count = rng.gen_range(4..=7);
+            let album_id = format!("mock:album:{album_idx}");
+            let track_count = 6;
             let mut album_tracks = Vec::new();
 
             for t in 0..track_count {
-                let track_id = generate_id();
+                let track_id = format!("mock:track:{album_idx}:{t}");
+                let duration = track_duration(album_idx, t);
                 album_tracks.push(track_id.clone());
                 tracks.push(Track {
                     id: track_id,
@@ -100,16 +93,13 @@ impl MockProvider {
                     artist_id: artist.id.clone(),
                     album: album_title.to_string(),
                     album_id: album_id.clone(),
-                    duration: random_duration(),
+                    duration,
                     track_number: (t + 1) as u32,
                     disc_number: 1,
                     genre: MOCK_ALBUMS[album_idx].2.to_string(),
                     year: 2020 + (album_idx as i32 % 5),
-                    cover_url: Some(make_cover_url(&format!("{}-{}", album_title, t))),
-                    stream_url: Some(format!(
-                        "https://mock.stream/{}/{}",
-                        album_title, t + 1
-                    )),
+                    cover_url: Some(make_cover_url(&format!("{album_title}-{t}"))),
+                    stream_url: Some(format!("https://mock.stream/{}/{}", album_title, t + 1)),
                     file_path: None,
                     provider: provider_id.clone(),
                     is_local: false,
@@ -139,7 +129,7 @@ impl MockProvider {
 
         let playlists = vec![
             Playlist {
-                id: generate_id(),
+                id: "mock:playlist:electronic-essentials".to_string(),
                 name: "Electronic Essentials".to_string(),
                 description: "Best of electronic and synthwave".to_string(),
                 tracks: tracks
@@ -156,7 +146,7 @@ impl MockProvider {
                 updated_at: Utc::now(),
             },
             Playlist {
-                id: generate_id(),
+                id: "mock:playlist:rock-anthems".to_string(),
                 name: "Rock Anthems".to_string(),
                 description: "Rock and alternative hits".to_string(),
                 tracks: tracks
@@ -173,16 +163,12 @@ impl MockProvider {
                 updated_at: Utc::now(),
             },
             Playlist {
-                id: generate_id(),
+                id: "mock:playlist:chill-vibes".to_string(),
                 name: "Chill Vibes".to_string(),
                 description: "Ambient, lo-fi, and chillhop".to_string(),
                 tracks: tracks
                     .iter()
-                    .filter(|t| {
-                        t.genre == "ambient"
-                            || t.genre == "lo-fi"
-                            || t.genre == "chillhop"
-                    })
+                    .filter(|t| t.genre == "ambient" || t.genre == "lo-fi" || t.genre == "chillhop")
                     .take(10)
                     .map(|t| t.id.clone())
                     .collect(),
@@ -218,6 +204,14 @@ impl MockProvider {
             .iter()
             .filter(|item| f(item).to_lowercase().contains(&q))
             .cloned()
+            .collect()
+    }
+
+    fn page<T>(items: Vec<T>, limit: u32, offset: u32) -> Vec<T> {
+        items
+            .into_iter()
+            .skip(offset as usize)
+            .take(limit as usize)
             .collect()
     }
 }
@@ -258,7 +252,7 @@ impl MusicProvider for MockProvider {
             .iter()
             .find(|t| t.id == *id)
             .cloned()
-            .ok_or_else(|| SymphonyError::not_found(format!("Track '{}' not found", id)))
+            .ok_or_else(|| SymphonyError::not_found(format!("Track '{id}' not found")))
     }
 
     async fn album(&self, id: &AlbumId) -> Result<Album> {
@@ -266,7 +260,7 @@ impl MusicProvider for MockProvider {
             .iter()
             .find(|a| a.id == *id)
             .cloned()
-            .ok_or_else(|| SymphonyError::not_found(format!("Album '{}' not found", id)))
+            .ok_or_else(|| SymphonyError::not_found(format!("Album '{id}' not found")))
     }
 
     async fn artist(&self, id: &ArtistId) -> Result<Artist> {
@@ -274,7 +268,7 @@ impl MusicProvider for MockProvider {
             .iter()
             .find(|a| a.id == *id)
             .cloned()
-            .ok_or_else(|| SymphonyError::not_found(format!("Artist '{}' not found", id)))
+            .ok_or_else(|| SymphonyError::not_found(format!("Artist '{id}' not found")))
     }
 
     async fn artist_albums(&self, id: &ArtistId) -> Result<Vec<Album>> {
@@ -303,7 +297,7 @@ impl MusicProvider for MockProvider {
             .iter()
             .find(|p| p.id == *id)
             .cloned()
-            .ok_or_else(|| SymphonyError::not_found(format!("Playlist '{}' not found", id)))
+            .ok_or_else(|| SymphonyError::not_found(format!("Playlist '{id}' not found")))
     }
 
     async fn resolve_stream_url(&self, track: &Track) -> Result<String> {
@@ -315,30 +309,27 @@ impl MusicProvider for MockProvider {
 
     async fn search_tracks(&self, query: &str, limit: u32, offset: u32) -> Result<Vec<Track>> {
         let results = Self::search_filter(&self.tracks, query, |t| &t.title);
-        let start = offset as usize;
-        let end = (start + limit as usize).min(results.len());
-        Ok(results[start..end].to_vec())
+        Ok(Self::page(results, limit, offset))
     }
 
     async fn search_albums(&self, query: &str, limit: u32, offset: u32) -> Result<Vec<Album>> {
         let results = Self::search_filter(&self.albums, query, |a| &a.title);
-        let start = offset as usize;
-        let end = (start + limit as usize).min(results.len());
-        Ok(results[start..end].to_vec())
+        Ok(Self::page(results, limit, offset))
     }
 
     async fn search_artists(&self, query: &str, limit: u32, offset: u32) -> Result<Vec<Artist>> {
         let results = Self::search_filter(&self.artists, query, |a| &a.name);
-        let start = offset as usize;
-        let end = (start + limit as usize).min(results.len());
-        Ok(results[start..end].to_vec())
+        Ok(Self::page(results, limit, offset))
     }
 
-    async fn search_playlists(&self, query: &str, limit: u32, offset: u32) -> Result<Vec<Playlist>> {
+    async fn search_playlists(
+        &self,
+        query: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<Playlist>> {
         let results = Self::search_filter(&self.playlists, query, |p| &p.name);
-        let start = offset as usize;
-        let end = (start + limit as usize).min(results.len());
-        Ok(results[start..end].to_vec())
+        Ok(Self::page(results, limit, offset))
     }
 
     async fn browse_new_releases(&self, limit: u32) -> Result<Vec<Album>> {
@@ -352,13 +343,36 @@ impl MusicProvider for MockProvider {
     }
 
     async fn browse_categories(&self) -> Result<Vec<String>> {
-        let mut categories: Vec<String> = self
-            .tracks
-            .iter()
-            .map(|t| t.genre.clone())
-            .collect();
+        let mut categories: Vec<String> = self.tracks.iter().map(|t| t.genre.clone()).collect();
         categories.sort();
         categories.dedup();
         Ok(categories)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn catalog_ids_and_content_are_stable() {
+        let first = MockProvider::new();
+        let second = MockProvider::new();
+
+        let first_tracks = first.search_tracks("", 100, 0).await.unwrap();
+        let second_tracks = second.search_tracks("", 100, 0).await.unwrap();
+
+        assert_eq!(first.id(), "mock");
+        assert_eq!(first_tracks, second_tracks);
+        assert_eq!(first_tracks.len(), MOCK_ALBUMS.len() * 6);
+    }
+
+    #[tokio::test]
+    async fn pagination_past_the_end_returns_an_empty_page() {
+        let provider = MockProvider::new();
+
+        let page = provider.search_tracks("", 10, 10_000).await.unwrap();
+
+        assert!(page.is_empty());
     }
 }

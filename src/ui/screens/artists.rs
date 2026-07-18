@@ -11,9 +11,7 @@ impl ArtistsScreen {
         artist_data.sort_by(|a, b| a.name.cmp(&b.name));
         let artists: Vec<ListItem> = artist_data
             .iter()
-            .map(|a| {
-                ListItem::new(format!(" {}  ({} albums)", a.name, a.album_count))
-            })
+            .map(|a| ListItem::new(format!(" {}  ({} albums)", a.name, a.album_count)))
             .collect();
 
         let list = List::new(artists)

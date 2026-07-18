@@ -52,8 +52,12 @@ impl PlayerBar {
         f.render_widget(gauge, chunks[2]);
 
         let vol_pct = (playback.volume * 100.0) as u8;
-        let vol_icon = if playback.volume > 0.0 { "\u{266a}" } else { "\u{1f507}" };
-        let volume = Paragraph::new(format!(" {} {}% ", vol_icon, vol_pct))
+        let vol_icon = if playback.volume > 0.0 {
+            "\u{266a}"
+        } else {
+            "\u{1f507}"
+        };
+        let volume = Paragraph::new(format!(" {vol_icon} {vol_pct}% "))
             .style(Style::default().fg(Color::Green));
         f.render_widget(volume, chunks[3]);
     }

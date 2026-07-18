@@ -1,5 +1,6 @@
 pub mod albums;
 pub mod artists;
+pub mod help;
 pub mod home;
 pub mod library;
 pub mod playlists;
@@ -25,6 +26,6 @@ pub fn render_screen(f: &mut Frame, area: Rect, state: &AppState) {
         Screen::Queue => queue::QueueScreen.render(f, area, state),
         Screen::Downloads => home::HomeScreen.render(f, area, state),
         Screen::Settings => settings::SettingsScreen.render(f, area, state),
-        Screen::Help => home::HomeScreen.render(f, area, state),
+        Screen::Help => help::HelpScreen.render(f, area),
     }
 }

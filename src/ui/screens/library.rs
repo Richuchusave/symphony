@@ -30,25 +30,31 @@ impl LibraryScreen {
             ))
             .style(Style::default().fg(Color::White)),
         ];
-        let stats_block = Paragraph::new(stats)
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)));
+        let stats_block = Paragraph::new(stats).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        );
         f.render_widget(stats_block, chunks[0]);
 
         let mut track_data: Vec<&crate::types::Track> = state.library.tracks.values().collect();
-        track_data.sort_by(|a, b| {
-            a.artist
-                .cmp(&b.artist)
-                .then(a.title.cmp(&b.title))
-        });
+        track_data.sort_by(|a, b| a.artist.cmp(&b.artist).then(a.title.cmp(&b.title)));
         let lines: Vec<ListItem> = track_data
             .iter()
-            .map(|t| {
+            .enumerate()
+            .map(|(index, t)| {
+                let style = if index == state.selected_index {
+                    Style::default().fg(Color::Black).bg(Color::Cyan).bold()
+                } else {
+                    Style::default().fg(Color::White)
+                };
                 ListItem::new(format!(
                     " {} \u{2014} {}  [{}]",
                     t.artist,
                     t.title,
                     t.duration_formatted()
                 ))
+                .style(style)
             })
             .collect();
 

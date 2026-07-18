@@ -2,6 +2,7 @@
 name = "symphony"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.88"
 description = "A universal terminal music player with support for multiple providers"
 authors = ["Symphony Contributors"]
 license = "MIT"
@@ -38,9 +39,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Concurrency
 parking_lot = "0.12"
 
-# IDs
-uuid = { version = "1", features = ["v4"] }
-
 # Date/time
 chrono = { version = "0.4", features = ["serde"] }
 
@@ -57,6 +55,9 @@ dirs = "6"
 # Audio metadata
 symphonia = { version = "0.5", features = ["all"] }
 
+# Audio output and decoding
+rodio = { version = "0.22.2", default-features = false, features = ["playback", "flac", "mp3", "mp4", "vorbis", "wav"] }
+
 # Plugin system (dynamic loading)
 libloading = "0.8"
 
@@ -70,8 +71,8 @@ rand = "0.8"
 humantime = "2"
 
 [features]
-default = ["mock-backend"]
-vlc-backend = []
+default = ["audio-backend"]
+audio-backend = []
 mock-backend = []
 
 [profile.release]

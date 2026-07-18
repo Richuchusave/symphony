@@ -35,13 +35,15 @@ impl QueueScreen {
                     .unwrap_or_else(|| track_id.clone());
 
                 let prefix = if is_current { "\u{25b6} " } else { "   " };
-                let style = if is_current {
+                let style = if i == state.selected_index {
+                    Style::default().fg(Color::Black).bg(Color::Cyan).bold()
+                } else if is_current {
                     Style::default().fg(Color::Cyan).bold()
                 } else {
                     Style::default().fg(Color::White)
                 };
 
-                ListItem::new(format!("{}{}", prefix, track_info)).style(style)
+                ListItem::new(format!("{prefix}{track_info}")).style(style)
             })
             .collect();
 
@@ -49,7 +51,7 @@ impl QueueScreen {
         let list = List::new(items)
             .block(
                 Block::default()
-                    .title(format!(" Queue ({} items) ", queue_len))
+                    .title(format!(" Queue ({queue_len} items) "))
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::Cyan)),
             )

@@ -104,8 +104,9 @@ impl CacheManager {
             if dir.exists() {
                 std::fs::remove_dir_all(dir)
                     .map_err(|e| SymphonyError::cache(format!("Failed to clear cache: {e}")))?;
-                std::fs::create_dir_all(dir)
-                    .map_err(|e| SymphonyError::cache(format!("Failed to recreate cache dir: {e}")))?;
+                std::fs::create_dir_all(dir).map_err(|e| {
+                    SymphonyError::cache(format!("Failed to recreate cache dir: {e}"))
+                })?;
             }
         }
         Ok(())

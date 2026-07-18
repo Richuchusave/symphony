@@ -9,7 +9,11 @@ impl HomeScreen {
     pub fn render(&self, f: &mut Frame, area: Rect, state: &AppState) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(8), Constraint::Length(6), Constraint::Min(1)])
+            .constraints([
+                Constraint::Length(8),
+                Constraint::Length(6),
+                Constraint::Min(1),
+            ])
             .split(area);
 
         let welcome = Paragraph::new(vec![
@@ -17,9 +21,14 @@ impl HomeScreen {
             Line::from(""),
             Line::from(" Your terminal music player").style(Style::default().fg(Color::White)),
             Line::from(""),
-            Line::from(" Press ? for help, / to search").style(Style::default().fg(Color::DarkGray)),
+            Line::from(" Press ? for help, / to search")
+                .style(Style::default().fg(Color::DarkGray)),
         ])
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        );
         f.render_widget(welcome, chunks[0]);
 
         let stats = vec![
@@ -34,8 +43,11 @@ impl HomeScreen {
             ))
             .style(Style::default().fg(Color::White)),
         ];
-        let stats_block = Paragraph::new(stats)
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
+        let stats_block = Paragraph::new(stats).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        );
         f.render_widget(stats_block, chunks[1]);
 
         let now_playing = match state.current_track() {
@@ -49,7 +61,11 @@ impl HomeScreen {
         };
         let playing = Paragraph::new(now_playing)
             .style(Style::default().fg(Color::White))
-            .block(Block::default().borders(Borders::ALL).title(" Now Playing "));
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" Now Playing "),
+            );
         f.render_widget(playing, chunks[2]);
     }
 }

@@ -39,7 +39,7 @@ impl Track {
         let secs = self.duration.as_secs();
         let mins = secs / 60;
         let secs = secs % 60;
-        format!("{}:{:02}", mins, secs)
+        format!("{mins}:{secs:02}")
     }
 
     pub fn display_title(&self) -> String {
@@ -322,9 +322,9 @@ pub fn format_duration(d: Duration) -> String {
     let mins = (total_secs % 3600) / 60;
     let secs = total_secs % 60;
     if hours > 0 {
-        format!("{}:{:02}:{:02}", hours, mins, secs)
+        format!("{hours}:{mins:02}:{secs:02}")
     } else {
-        format!("{}:{:02}", mins, secs)
+        format!("{mins}:{secs:02}")
     }
 }
 
@@ -374,9 +374,6 @@ impl Library {
     }
 
     pub fn duration_total(&self) -> Duration {
-        self.tracks
-            .values()
-            .map(|t| t.duration)
-            .sum::<Duration>()
+        self.tracks.values().map(|t| t.duration).sum::<Duration>()
     }
 }

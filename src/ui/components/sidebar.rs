@@ -58,7 +58,7 @@ impl Sidebar {
                 };
 
                 let prefix = if is_current { "\u{25b8} " } else { "  " };
-                ListItem::new(format!("{}{} {}", prefix, icon, label)).style(style)
+                ListItem::new(format!("{prefix}{icon} {label}")).style(style)
             })
             .collect();
 
@@ -67,10 +67,7 @@ impl Sidebar {
     }
 
     pub fn handle_click(&self, x: u16, y: u16, area: Rect) -> Option<Screen> {
-        if x < area.x
-            || x >= area.x + area.width
-            || y < area.y + 1
-            || y >= area.y + area.height - 1
+        if x < area.x || x >= area.x + area.width || y < area.y + 1 || y >= area.y + area.height - 1
         {
             return None;
         }

@@ -25,22 +25,18 @@ impl Default for ProviderRegistry {
 }
 
 impl ProviderRegistry {
-
     pub fn register(&mut self, provider: Box<dyn MusicProvider>) {
         let id = provider.id();
-        self.active_provider = id.clone();
+        if self.active_provider.is_empty() {
+            self.active_provider = id.clone();
+        }
         self.providers.insert(id, provider);
     }
 
     pub fn unregister(&mut self, id: &ProviderId) -> Option<Box<dyn MusicProvider>> {
         let removed = self.providers.remove(id);
         if self.active_provider == *id {
-            self.active_provider = self
-                .providers
-                .keys()
-                .next()
-                .cloned()
-                .unwrap_or_default();
+            self.active_provider = self.providers.keys().next().cloned().unwrap_or_default();
         }
         removed
     }
@@ -49,7 +45,10 @@ impl ProviderRegistry {
         self.providers.get(id).map(|p| p.as_ref())
     }
 
-    pub fn get_mut<'a>(&'a mut self, id: &ProviderId) -> Option<&'a mut (dyn MusicProvider + 'static)> {
+    pub fn get_mut<'a>(
+        &'a mut self,
+        id: &ProviderId,
+    ) -> Option<&'a mut (dyn MusicProvider + 'static)> {
         self.providers.get_mut(id).map(|p| p.as_mut())
     }
 
@@ -73,8 +72,7 @@ impl ProviderRegistry {
             Ok(())
         } else {
             Err(SymphonyError::not_found(format!(
-                "Provider '{}' not found",
-                id
+                "Provider '{id}' not found"
             )))
         }
     }
@@ -84,7 +82,9 @@ impl ProviderRegistry {
     }
 
     pub fn list_ids(&self) -> Vec<ProviderId> {
-        self.providers.keys().cloned().collect()
+        let mut ids: Vec<_> = self.providers.keys().cloned().collect();
+        ids.sort();
+        ids
     }
 
     pub fn has_provider(&self, id: &ProviderId) -> bool {
@@ -97,5 +97,29 @@ impl ProviderRegistry {
 
     pub fn is_empty(&self) -> bool {
         self.providers.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::provider::MockProvider;
+
+    #[test]
+    fn registration_keeps_the_first_provider_active() {
+        let mut registry = ProviderRegistry::new();
+        registry.register(Box::new(MockProvider::new()));
+
+        assert_eq!(registry.active().id(), "mock");
+        assert_eq!(registry.list_ids(), ["mock"]);
+    }
+
+    #[test]
+    fn selecting_a_missing_provider_returns_an_error() {
+        let mut registry = ProviderRegistry::new();
+        registry.register(Box::new(MockProvider::new()));
+
+        assert!(registry.set_active(&"missing".to_string()).is_err());
+        assert_eq!(registry.active().id(), "mock");
     }
 }

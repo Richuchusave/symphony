@@ -61,8 +61,7 @@ impl Theme {
     }
 
     pub fn from_name(name: &str) -> Result<Self> {
-        Self::by_name(name)
-            .ok_or_else(|| SymphonyError::theme(format!("Unknown theme: {name}")))
+        Self::by_name(name).ok_or_else(|| SymphonyError::theme(format!("Unknown theme: {name}")))
     }
 
     pub fn by_name(name: &str) -> Option<Theme> {
@@ -136,17 +135,25 @@ fn default_dark() -> Theme {
         player_bar_bg: Color::Rgb(18, 18, 26),
     };
     let styles = ThemeStyles {
-        title: Style::default().fg(colors.text_bright).add_modifier(Modifier::BOLD),
+        title: Style::default()
+            .fg(colors.text_bright)
+            .add_modifier(Modifier::BOLD),
         subtitle: Style::default().fg(colors.text_dim),
         selected: Style::default()
             .fg(colors.text_bright)
             .bg(colors.highlight)
             .add_modifier(Modifier::BOLD),
-        highlighted: Style::default().fg(colors.primary).add_modifier(Modifier::BOLD),
+        highlighted: Style::default()
+            .fg(colors.primary)
+            .add_modifier(Modifier::BOLD),
         dim: Style::default().fg(colors.text_dim),
-        error: Style::default().fg(colors.error).add_modifier(Modifier::BOLD),
+        error: Style::default()
+            .fg(colors.error)
+            .add_modifier(Modifier::BOLD),
         success: Style::default().fg(colors.success),
-        link: Style::default().fg(colors.secondary).add_modifier(Modifier::UNDERLINED),
+        link: Style::default()
+            .fg(colors.secondary)
+            .add_modifier(Modifier::UNDERLINED),
         active_tab: Style::default()
             .fg(colors.text_bright)
             .bg(colors.surface)
@@ -185,17 +192,25 @@ fn catppuccin_mocha() -> Theme {
         player_bar_bg: Color::Rgb(24, 24, 37),
     };
     let styles = ThemeStyles {
-        title: Style::default().fg(colors.text_bright).add_modifier(Modifier::BOLD),
+        title: Style::default()
+            .fg(colors.text_bright)
+            .add_modifier(Modifier::BOLD),
         subtitle: Style::default().fg(colors.text_dim),
         selected: Style::default()
             .fg(colors.background)
             .bg(colors.primary)
             .add_modifier(Modifier::BOLD),
-        highlighted: Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        highlighted: Style::default()
+            .fg(colors.accent)
+            .add_modifier(Modifier::BOLD),
         dim: Style::default().fg(colors.text_dim),
-        error: Style::default().fg(colors.error).add_modifier(Modifier::BOLD),
+        error: Style::default()
+            .fg(colors.error)
+            .add_modifier(Modifier::BOLD),
         success: Style::default().fg(colors.success),
-        link: Style::default().fg(colors.primary).add_modifier(Modifier::UNDERLINED),
+        link: Style::default()
+            .fg(colors.primary)
+            .add_modifier(Modifier::UNDERLINED),
         active_tab: Style::default()
             .fg(colors.text_bright)
             .bg(colors.surface)
@@ -234,17 +249,25 @@ fn dracula() -> Theme {
         player_bar_bg: Color::Rgb(33, 34, 44),
     };
     let styles = ThemeStyles {
-        title: Style::default().fg(colors.text_bright).add_modifier(Modifier::BOLD),
+        title: Style::default()
+            .fg(colors.text_bright)
+            .add_modifier(Modifier::BOLD),
         subtitle: Style::default().fg(colors.text_dim),
         selected: Style::default()
             .fg(colors.background)
             .bg(colors.primary)
             .add_modifier(Modifier::BOLD),
-        highlighted: Style::default().fg(colors.accent).add_modifier(Modifier::BOLD),
+        highlighted: Style::default()
+            .fg(colors.accent)
+            .add_modifier(Modifier::BOLD),
         dim: Style::default().fg(colors.text_dim),
-        error: Style::default().fg(colors.error).add_modifier(Modifier::BOLD),
+        error: Style::default()
+            .fg(colors.error)
+            .add_modifier(Modifier::BOLD),
         success: Style::default().fg(colors.success),
-        link: Style::default().fg(colors.primary).add_modifier(Modifier::UNDERLINED),
+        link: Style::default()
+            .fg(colors.primary)
+            .add_modifier(Modifier::UNDERLINED),
         active_tab: Style::default()
             .fg(colors.text_bright)
             .bg(colors.surface)
@@ -283,17 +306,25 @@ fn nord() -> Theme {
         player_bar_bg: Color::Rgb(40, 45, 56),
     };
     let styles = ThemeStyles {
-        title: Style::default().fg(colors.text_bright).add_modifier(Modifier::BOLD),
+        title: Style::default()
+            .fg(colors.text_bright)
+            .add_modifier(Modifier::BOLD),
         subtitle: Style::default().fg(colors.text_dim),
         selected: Style::default()
             .fg(colors.background)
             .bg(colors.primary)
             .add_modifier(Modifier::BOLD),
-        highlighted: Style::default().fg(colors.primary).add_modifier(Modifier::BOLD),
+        highlighted: Style::default()
+            .fg(colors.primary)
+            .add_modifier(Modifier::BOLD),
         dim: Style::default().fg(colors.text_dim),
-        error: Style::default().fg(colors.error).add_modifier(Modifier::BOLD),
+        error: Style::default()
+            .fg(colors.error)
+            .add_modifier(Modifier::BOLD),
         success: Style::default().fg(colors.success),
-        link: Style::default().fg(colors.primary).add_modifier(Modifier::UNDERLINED),
+        link: Style::default()
+            .fg(colors.primary)
+            .add_modifier(Modifier::UNDERLINED),
         active_tab: Style::default()
             .fg(colors.text_bright)
             .bg(colors.surface)

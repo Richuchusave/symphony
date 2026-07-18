@@ -33,6 +33,7 @@ pub enum Action {
     RightClick(u16, u16),
     Resize(u16, u16),
     Tick,
+    Input(char),
     None,
 }
 
@@ -117,6 +118,7 @@ pub fn format_action(action: &Action) -> &str {
         Action::RightClick(_, _) => "Right Click",
         Action::Resize(_, _) => "Resize",
         Action::Tick => "Tick",
+        Action::Input(_) => "Text Input",
         Action::None => "",
     }
 }

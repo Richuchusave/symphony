@@ -1,7 +1,7 @@
-use async_trait::async_trait;
 use crate::errors::*;
-use crate::types::*;
 use crate::state::AppState;
+use crate::types::*;
+use async_trait::async_trait;
 
 #[async_trait]
 pub trait Plugin: Send + Sync {

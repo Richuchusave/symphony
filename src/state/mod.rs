@@ -217,10 +217,11 @@ impl AppState {
     // ─── Playback ────────────────────────────────────────────────────────
 
     pub fn current_track(&self) -> Option<&Track> {
-        self.playback
-            .current_track_id
-            .as_ref()
-            .and_then(|id| self.track_cache.get(id).or_else(|| self.library.tracks.get(id)))
+        self.playback.current_track_id.as_ref().and_then(|id| {
+            self.track_cache
+                .get(id)
+                .or_else(|| self.library.tracks.get(id))
+        })
     }
 
     // ─── Notifications ───────────────────────────────────────────────────

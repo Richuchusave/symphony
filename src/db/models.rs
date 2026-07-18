@@ -13,8 +13,9 @@ pub struct Database {
 impl Database {
     pub fn new(path: &Path) -> Result<Self> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| SymphonyError::Database(rusqlite::Error::ToSqlConversionFailure(Box::new(e))))?;
+            std::fs::create_dir_all(parent).map_err(|e| {
+                SymphonyError::Database(rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+            })?;
         }
         let conn = Connection::open(path)?;
         let db = Self {
@@ -208,7 +209,7 @@ impl Database {
     }
 
     pub fn search_tracks(&self, query: &str) -> Result<Vec<Track>> {
-        let pattern = format!("%{}%", query);
+        let pattern = format!("%{query}%");
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, title, artist, artist_id, album, album_id, duration_secs, track_number, disc_number, genre, year, cover_url, stream_url, file_path, provider, is_local
@@ -363,9 +364,7 @@ impl Database {
             "SELECT id, name, description, cover_url, owner, provider, is_user_created, created_at, updated_at
              FROM playlists WHERE id = ?1",
         )?;
-        let mut rows = stmt.query_map(params![id], |row| {
-            row_to_playlist(row, &conn)
-        })?;
+        let mut rows = stmt.query_map(params![id], |row| row_to_playlist(row, &conn))?;
         match rows.next() {
             Some(Ok(playlist)) => Ok(Some(playlist)),
             Some(Err(e)) => Err(e.into()),
@@ -379,9 +378,7 @@ impl Database {
             "SELECT id, name, description, cover_url, owner, provider, is_user_created, created_at, updated_at
              FROM playlists ORDER BY name",
         )?;
-        let rows = stmt.query_map([], |row| {
-            row_to_playlist(row, &conn)
-        })?;
+        let rows = stmt.query_map([], |row| row_to_playlist(row, &conn))?;
         let mut playlists = Vec::new();
         for row in rows {
             playlists.push(row?);
@@ -391,7 +388,10 @@ impl Database {
 
     pub fn delete_playlist(&self, id: &PlaylistId) -> Result<()> {
         let conn = self.conn.lock().unwrap();
-        conn.execute("DELETE FROM playlist_tracks WHERE playlist_id = ?1", params![id])?;
+        conn.execute(
+            "DELETE FROM playlist_tracks WHERE playlist_id = ?1",
+            params![id],
+        )?;
         conn.execute("DELETE FROM playlists WHERE id = ?1", params![id])?;
         Ok(())
     }
@@ -429,29 +429,21 @@ impl Database {
 
     // ── Queue ────────────────────────────────────────────────────────────
 
-    pub fn save_queue(
-        &self,
-        queue: &[TrackId],
-        current_index: Option<usize>,
-    ) -> Result<()> {
+    pub fn save_queue(&self, queue: &[TrackId], current_index: Option<usize>) -> Result<()> {
         let track_ids = serde_json::to_string(queue)?;
         let conn = self.conn.lock().unwrap();
         conn.execute("DELETE FROM queue_state", [])?;
         conn.execute(
             "INSERT INTO queue_state (track_ids, current_index) VALUES (?1, ?2)",
-            params![
-                track_ids,
-                current_index.map(|i| i as i64),
-            ],
+            params![track_ids, current_index.map(|i| i as i64),],
         )?;
         Ok(())
     }
 
     pub fn load_queue(&self) -> Result<(Vec<TrackId>, Option<usize>)> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT track_ids, current_index FROM queue_state ORDER BY id DESC LIMIT 1",
-        )?;
+        let mut stmt = conn
+            .prepare("SELECT track_ids, current_index FROM queue_state ORDER BY id DESC LIMIT 1")?;
         let result = stmt.query_row([], |row| {
             let json: String = row.get(0)?;
             let index: Option<i64> = row.get(1)?;
@@ -480,9 +472,7 @@ impl Database {
 
     pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT value FROM settings WHERE key = ?1",
-        )?;
+        let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?1")?;
         let mut rows = stmt.query_map(params![key], |row| row.get::<_, String>(0))?;
         match rows.next() {
             Some(Ok(value)) => Ok(Some(value)),
@@ -553,8 +543,7 @@ fn row_to_track(row: &rusqlite::Row) -> rusqlite::Result<Track> {
 
 fn row_to_album(row: &rusqlite::Row) -> rusqlite::Result<Album> {
     let track_ids_json: String = row.get(4)?;
-    let tracks: Vec<TrackId> = serde_json::from_str(&track_ids_json)
-        .unwrap_or_default();
+    let tracks: Vec<TrackId> = serde_json::from_str(&track_ids_json).unwrap_or_default();
     Ok(Album {
         id: row.get(0)?,
         title: row.get(1)?,
@@ -571,8 +560,7 @@ fn row_to_album(row: &rusqlite::Row) -> rusqlite::Result<Album> {
 
 fn row_to_artist(row: &rusqlite::Row) -> rusqlite::Result<Artist> {
     let genres_json: String = row.get(3)?;
-    let genres: Vec<String> = serde_json::from_str(&genres_json)
-        .unwrap_or_default();
+    let genres: Vec<String> = serde_json::from_str(&genres_json).unwrap_or_default();
     Ok(Artist {
         id: row.get(0)?,
         name: row.get(1)?,
@@ -583,14 +571,10 @@ fn row_to_artist(row: &rusqlite::Row) -> rusqlite::Result<Artist> {
     })
 }
 
-fn row_to_playlist(
-    row: &rusqlite::Row,
-    conn: &Connection,
-) -> rusqlite::Result<Playlist> {
+fn row_to_playlist(row: &rusqlite::Row, conn: &Connection) -> rusqlite::Result<Playlist> {
     let id: String = row.get(0)?;
-    let mut track_stmt = conn.prepare(
-        "SELECT track_id FROM playlist_tracks WHERE playlist_id = ?1 ORDER BY position",
-    )?;
+    let mut track_stmt = conn
+        .prepare("SELECT track_id FROM playlist_tracks WHERE playlist_id = ?1 ORDER BY position")?;
     let track_ids: Vec<TrackId> = track_stmt
         .query_map(params![id], |r| r.get(0))?
         .filter_map(|r| r.ok())
@@ -606,7 +590,11 @@ fn row_to_playlist(
         owner: row.get(4)?,
         provider: row.get(5)?,
         is_user_created: row.get::<_, i32>(6)? != 0,
-        created_at: created_at_str.parse().unwrap_or_else(|_| chrono::Utc::now()),
-        updated_at: updated_at_str.parse().unwrap_or_else(|_| chrono::Utc::now()),
+        created_at: created_at_str
+            .parse()
+            .unwrap_or_else(|_| chrono::Utc::now()),
+        updated_at: updated_at_str
+            .parse()
+            .unwrap_or_else(|_| chrono::Utc::now()),
     })
 }

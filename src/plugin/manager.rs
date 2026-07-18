@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use tracing;
 
-use crate::plugin::traits::{Plugin, PluginCategory};
 use crate::errors::*;
-use crate::types::AppEvent;
+use crate::plugin::traits::{Plugin, PluginCategory};
 use crate::state::AppState;
+use crate::types::AppEvent;
 
 pub struct PluginManager {
     plugins: HashMap<String, Box<dyn Plugin + 'static>>,
@@ -28,13 +28,11 @@ impl Default for PluginManager {
 }
 
 impl PluginManager {
-
     pub fn register(&mut self, plugin: Box<dyn Plugin>) -> Result<()> {
         let id = plugin.id().to_string();
         if self.plugins.contains_key(&id) {
             return Err(SymphonyError::plugin(format!(
-                "Plugin already registered: {}",
-                id
+                "Plugin already registered: {id}"
             )));
         }
         self.plugins.insert(id.clone(), plugin);

@@ -41,7 +41,7 @@ impl Default for GeneralConfig {
             cache_dir,
             log_level: "info".to_string(),
             check_updates: true,
-            default_provider: "mock".to_string(),
+            default_provider: "youtube".to_string(),
         }
     }
 }
@@ -140,10 +140,14 @@ pub struct ProviderConfig {
 impl Default for ProviderConfig {
     fn default() -> Self {
         Self {
-            enabled_providers: vec!["mock".to_string(), "local".to_string()],
+            enabled_providers: vec![
+                "youtube".to_string(),
+                "local".to_string(),
+                "mock".to_string(),
+            ],
             local: LocalProviderConfig::default(),
             spotify: None,
-            youtube_music: None,
+            youtube_music: Some(YouTubeMusicConfig::default()),
         }
     }
 }
@@ -159,8 +163,7 @@ pub struct LocalProviderConfig {
 
 impl Default for LocalProviderConfig {
     fn default() -> Self {
-        let music_dir = dirs::audio_dir()
-            .or_else(|| dirs::home_dir().map(|h| h.join("Music")));
+        let music_dir = dirs::audio_dir().or_else(|| dirs::home_dir().map(|h| h.join("Music")));
 
         Self {
             music_directories: music_dir.map(|d| vec![d]).unwrap_or_default(),
@@ -296,9 +299,14 @@ impl Config {
     }
 
     pub fn ensure_dirs(&self) -> Result<()> {
-        for dir in &[&self.general.data_dir, &self.general.config_dir, &self.general.cache_dir] {
-            std::fs::create_dir_all(dir)
-                .map_err(|e| SymphonyError::Config(format!("Failed to create directory {dir:?}: {e}")))?;
+        for dir in &[
+            &self.general.data_dir,
+            &self.general.config_dir,
+            &self.general.cache_dir,
+        ] {
+            std::fs::create_dir_all(dir).map_err(|e| {
+                SymphonyError::Config(format!("Failed to create directory {dir:?}: {e}"))
+            })?;
         }
         Ok(())
     }

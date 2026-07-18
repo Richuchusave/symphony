@@ -23,7 +23,8 @@ pub trait MusicProvider: Send + Sync + Debug {
     async fn search_tracks(&self, query: &str, limit: u32, offset: u32) -> Result<Vec<Track>>;
     async fn search_albums(&self, query: &str, limit: u32, offset: u32) -> Result<Vec<Album>>;
     async fn search_artists(&self, query: &str, limit: u32, offset: u32) -> Result<Vec<Artist>>;
-    async fn search_playlists(&self, query: &str, limit: u32, offset: u32) -> Result<Vec<Playlist>>;
+    async fn search_playlists(&self, query: &str, limit: u32, offset: u32)
+        -> Result<Vec<Playlist>>;
 
     async fn browse_new_releases(&self, limit: u32) -> Result<Vec<Album>>;
     async fn browse_featured_playlists(&self, limit: u32) -> Result<Vec<Playlist>>;
