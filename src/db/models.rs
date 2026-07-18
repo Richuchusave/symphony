@@ -179,9 +179,7 @@ impl Database {
             "SELECT id, title, artist, artist_id, album, album_id, duration_secs, track_number, disc_number, genre, year, cover_url, stream_url, file_path, provider, is_local
              FROM tracks WHERE id = ?1",
         )?;
-        let mut rows = stmt.query_map(params![id], |row| {
-            row_to_track(row)
-        })?;
+        let mut rows = stmt.query_map(params![id], row_to_track)?;
         match rows.next() {
             Some(Ok(track)) => Ok(Some(track)),
             Some(Err(e)) => Err(e.into()),
@@ -195,7 +193,7 @@ impl Database {
             "SELECT id, title, artist, artist_id, album, album_id, duration_secs, track_number, disc_number, genre, year, cover_url, stream_url, file_path, provider, is_local
              FROM tracks ORDER BY artist, album, disc_number, track_number",
         )?;
-        let rows = stmt.query_map([], |row| row_to_track(row))?;
+        let rows = stmt.query_map([], row_to_track)?;
         let mut tracks = Vec::new();
         for row in rows {
             tracks.push(row?);
@@ -217,7 +215,7 @@ impl Database {
              FROM tracks WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1
              ORDER BY artist, album, disc_number, track_number LIMIT 500",
         )?;
-        let rows = stmt.query_map(params![pattern], |row| row_to_track(row))?;
+        let rows = stmt.query_map(params![pattern], row_to_track)?;
         let mut tracks = Vec::new();
         for row in rows {
             tracks.push(row?);
@@ -255,7 +253,7 @@ impl Database {
             "SELECT id, title, artist, artist_id, track_ids, cover_url, year, track_count, duration_secs, provider
              FROM albums WHERE id = ?1",
         )?;
-        let mut rows = stmt.query_map(params![id], |row| row_to_album(row))?;
+        let mut rows = stmt.query_map(params![id], row_to_album)?;
         match rows.next() {
             Some(Ok(album)) => Ok(Some(album)),
             Some(Err(e)) => Err(e.into()),
@@ -269,7 +267,7 @@ impl Database {
             "SELECT id, title, artist, artist_id, track_ids, cover_url, year, track_count, duration_secs, provider
              FROM albums ORDER BY artist, year",
         )?;
-        let rows = stmt.query_map([], |row| row_to_album(row))?;
+        let rows = stmt.query_map([], row_to_album)?;
         let mut albums = Vec::new();
         for row in rows {
             albums.push(row?);
@@ -303,7 +301,7 @@ impl Database {
             "SELECT id, name, image_url, genres, album_count, provider
              FROM artists WHERE id = ?1",
         )?;
-        let mut rows = stmt.query_map(params![id], |row| row_to_artist(row))?;
+        let mut rows = stmt.query_map(params![id], row_to_artist)?;
         match rows.next() {
             Some(Ok(artist)) => Ok(Some(artist)),
             Some(Err(e)) => Err(e.into()),
@@ -317,7 +315,7 @@ impl Database {
             "SELECT id, name, image_url, genres, album_count, provider
              FROM artists ORDER BY name",
         )?;
-        let rows = stmt.query_map([], |row| row_to_artist(row))?;
+        let rows = stmt.query_map([], row_to_artist)?;
         let mut artists = Vec::new();
         for row in rows {
             artists.push(row?);

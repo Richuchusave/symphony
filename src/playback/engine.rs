@@ -1,6 +1,5 @@
 use async_trait::async_trait;
-use std::time::Duration;
-use tokio::time::interval;
+use std::time::{Duration, Instant};
 
 use crate::config::Config;
 use crate::errors::*;
@@ -24,11 +23,12 @@ pub trait PlaybackEngine: Send + Sync {
 
 pub struct MockPlaybackEngine {
     status: PlaybackStatus,
-    position: Duration,
+    paused_position: Duration,
     duration: Duration,
     volume: f64,
     muted: bool,
     current_track_id: Option<TrackId>,
+    play_start: Option<Instant>,
 }
 
 impl Default for MockPlaybackEngine {
@@ -41,32 +41,19 @@ impl MockPlaybackEngine {
     pub fn new() -> Self {
         Self {
             status: PlaybackStatus::Stopped,
-            position: Duration::ZERO,
+            paused_position: Duration::ZERO,
             duration: Duration::from_secs(240),
             volume: 0.8,
             muted: false,
             current_track_id: None,
+            play_start: None,
         }
     }
 
-    async fn simulate_progress(&mut self) {
-        let mut tick = interval(Duration::from_millis(250));
-        loop {
-            match self.status {
-                PlaybackStatus::Playing => {
-                    self.position += Duration::from_millis(250);
-                    if self.position >= self.duration {
-                        self.status = PlaybackStatus::Stopped;
-                        self.position = Duration::ZERO;
-                        self.current_track_id = None;
-                    }
-                }
-                PlaybackStatus::Paused | PlaybackStatus::Stopped => {
-                    break;
-                }
-            }
-            tick.tick().await;
-        }
+    fn elapsed(&self) -> Duration {
+        self.play_start
+            .map(|start| start.elapsed())
+            .unwrap_or(Duration::ZERO)
     }
 }
 
@@ -74,10 +61,10 @@ impl MockPlaybackEngine {
 impl PlaybackEngine for MockPlaybackEngine {
     async fn play(&mut self, track_id: &TrackId, _stream_url: &str) -> Result<()> {
         self.status = PlaybackStatus::Playing;
-        self.position = Duration::ZERO;
+        self.paused_position = Duration::ZERO;
         self.duration = Duration::from_secs(240);
         self.current_track_id = Some(track_id.clone());
-        self.simulate_progress().await;
+        self.play_start = Some(Instant::now());
         Ok(())
     }
 
@@ -85,6 +72,8 @@ impl PlaybackEngine for MockPlaybackEngine {
         match self.status {
             PlaybackStatus::Playing => {
                 self.status = PlaybackStatus::Paused;
+                self.paused_position = self.elapsed().min(self.duration);
+                self.play_start = None;
                 Ok(())
             }
             _ => Err(SymphonyError::playback("Cannot pause: not playing")),
@@ -95,6 +84,7 @@ impl PlaybackEngine for MockPlaybackEngine {
         match self.status {
             PlaybackStatus::Paused => {
                 self.status = PlaybackStatus::Playing;
+                self.play_start = Some(Instant::now());
                 Ok(())
             }
             _ => Err(SymphonyError::playback("Cannot resume: not paused")),
@@ -103,8 +93,9 @@ impl PlaybackEngine for MockPlaybackEngine {
 
     async fn stop(&mut self) -> Result<()> {
         self.status = PlaybackStatus::Stopped;
-        self.position = Duration::ZERO;
+        self.paused_position = Duration::ZERO;
         self.current_track_id = None;
+        self.play_start = None;
         Ok(())
     }
 
@@ -115,7 +106,15 @@ impl PlaybackEngine for MockPlaybackEngine {
                 position, self.duration
             )));
         }
-        self.position = position;
+        match self.status {
+            PlaybackStatus::Playing => {
+                self.play_start = Some(Instant::now());
+                self.paused_position = position;
+            }
+            _ => {
+                self.paused_position = position;
+            }
+        }
         Ok(())
     }
 
@@ -128,11 +127,22 @@ impl PlaybackEngine for MockPlaybackEngine {
     }
 
     fn status(&self) -> PlaybackStatus {
-        self.status
+        if self.status == PlaybackStatus::Playing && self.elapsed() >= self.duration {
+            PlaybackStatus::Stopped
+        } else {
+            self.status
+        }
     }
 
     fn position(&self) -> Duration {
-        self.position
+        match self.status {
+            PlaybackStatus::Playing => {
+                let pos = self.paused_position + self.elapsed();
+                pos.min(self.duration)
+            }
+            PlaybackStatus::Paused => self.paused_position,
+            PlaybackStatus::Stopped => Duration::ZERO,
+        }
     }
 
     fn duration(&self) -> Duration {

@@ -1,8 +1,9 @@
 use async_trait::async_trait;
-use fuzzy_matcher::skim::fuzzy_match;
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
 use glob::glob;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -53,7 +54,7 @@ fn read_metadata(path: &Path) -> Result<(String, String, String, Duration)> {
     let (title, artist, album) = try_read_metadata_symphonia(path);
 
     let result = (
-        title.unwrap_or_else(|| filename),
+        title.unwrap_or(filename),
         artist.unwrap_or_else(|| "Unknown Artist".to_string()),
         album.unwrap_or_else(|| "Unknown Album".to_string()),
         Duration::from_secs(0),
@@ -284,11 +285,12 @@ impl LocalProvider {
             .values()
             .filter_map(|item| {
                 let field = f(item).to_lowercase();
-                let score = fuzzy_match(&field, &q)?;
+                let matcher = SkimMatcherV2::default();
+                let score = matcher.fuzzy_match(&field, &q)?;
                 Some((score, item))
             })
             .collect();
-        scored.sort_by(|a, b| b.0.cmp(&a.0));
+        scored.sort_by_key(|b| std::cmp::Reverse(b.0));
         scored.into_iter().map(|(_, item)| item.clone()).collect()
     }
 }
@@ -410,7 +412,7 @@ impl MusicProvider for LocalProvider {
 
     async fn browse_new_releases(&self, limit: u32) -> Result<Vec<Album>> {
         let mut albums: Vec<Album> = self.albums.values().cloned().collect();
-        albums.sort_by(|a, b| b.year.cmp(&a.year));
+        albums.sort_by_key(|b| std::cmp::Reverse(b.year));
         albums.truncate(limit as usize);
         Ok(albums)
     }

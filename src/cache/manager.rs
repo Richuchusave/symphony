@@ -7,6 +7,7 @@ use crate::errors::*;
 
 pub struct CacheManager {
     cache_dir: PathBuf,
+    #[allow(dead_code)]
     max_size: u64,
     ttl: Duration,
 }

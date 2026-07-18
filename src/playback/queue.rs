@@ -20,7 +20,15 @@ impl PlaybackQueue {
             shuffle: ShuffleMode::Off,
         }
     }
+}
 
+impl Default for PlaybackQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PlaybackQueue {
     pub fn len(&self) -> usize {
         self.tracks.len()
     }
@@ -84,6 +92,7 @@ impl PlaybackQueue {
         self.current_index.and_then(|i| self.tracks.get(i))
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Option<TrackId> {
         match self.shuffle {
             ShuffleMode::On => self.next_shuffled(),

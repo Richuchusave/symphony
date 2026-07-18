@@ -348,23 +348,12 @@ pub fn parse_duration(s: &str) -> Result<Duration, String> {
 
 // ─── Library ──────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Library {
     pub tracks: HashMap<TrackId, Track>,
     pub albums: HashMap<AlbumId, Album>,
     pub artists: HashMap<ArtistId, Artist>,
     pub playlists: HashMap<PlaylistId, Playlist>,
-}
-
-impl Default for Library {
-    fn default() -> Self {
-        Self {
-            tracks: HashMap::new(),
-            albums: HashMap::new(),
-            artists: HashMap::new(),
-            playlists: HashMap::new(),
-        }
-    }
 }
 
 impl Library {

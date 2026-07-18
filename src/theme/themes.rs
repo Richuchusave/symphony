@@ -55,6 +55,7 @@ impl Theme {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn default() -> Self {
         default_dark()
     }
@@ -310,7 +311,7 @@ fn parse_color(s: &str) -> Result<Color> {
     if let Some(hex) = s.strip_prefix('#') {
         let hex = if hex.len() == 3 {
             hex.chars()
-                .flat_map(|c| std::iter::repeat(c).take(2))
+                .flat_map(|c| std::iter::repeat_n(c, 2))
                 .collect::<String>()
         } else {
             hex.to_string()

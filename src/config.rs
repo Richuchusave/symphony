@@ -2,7 +2,7 @@ use crate::errors::{Result, SymphonyError};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Config {
     pub general: GeneralConfig,
     pub playback: PlaybackConfig,
@@ -11,20 +11,6 @@ pub struct Config {
     pub providers: ProviderConfig,
     pub keybindings: KeybindingConfig,
     pub theme: ThemeConfig,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            general: GeneralConfig::default(),
-            playback: PlaybackConfig::default(),
-            ui: UIConfig::default(),
-            cache: CacheConfig::default(),
-            providers: ProviderConfig::default(),
-            keybindings: KeybindingConfig::default(),
-            theme: ThemeConfig::default(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

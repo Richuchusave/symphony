@@ -67,7 +67,6 @@ impl MockProvider {
         let provider_id = id.clone();
         let name = "Mock Provider".to_string();
 
-        let artist_count = MOCK_ARTISTS.len();
         let artists: Vec<Artist> = MOCK_ARTISTS
             .iter()
             .enumerate()

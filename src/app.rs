@@ -27,17 +27,21 @@ pub struct Application {
     registry: ProviderRegistry,
     plugin_manager: PluginManager,
     db: Option<Database>,
+    #[allow(dead_code)]
     cache: Option<CacheManager>,
+    #[allow(dead_code)]
     theme: Theme,
     layout: AppLayout,
     sidebar: Sidebar,
     player_bar: PlayerBar,
+    #[allow(dead_code)]
     search_input: SearchInput,
     event_rx: mpsc::Receiver<AppEvent>,
     event_tx: mpsc::Sender<AppEvent>,
     tick_interval: Duration,
 }
 
+#[allow(clippy::await_holding_lock)]
 impl Application {
     pub async fn new(config: Config) -> Result<Self> {
         config.ensure_dirs()?;
@@ -53,7 +57,7 @@ impl Application {
 
         let engine = create_playback_engine(&config);
 
-        let queue = PlaybackQueue::new();
+        let mut queue = PlaybackQueue::new();
 
         let mut registry = ProviderRegistry::new();
         registry.register(Box::new(MockProvider::new()));
@@ -87,9 +91,19 @@ impl Application {
         ));
 
         if let Some(ref db) = db {
-            if let Ok((tracks, index)) = db.load_queue() {
-                if !tracks.is_empty() {
-                    let _idx = index.unwrap_or(0);
+            if let Ok((track_ids, saved_index)) = db.load_queue() {
+                if !track_ids.is_empty() {
+                    for tid in &track_ids {
+                        queue.add(tid.clone());
+                    }
+                    if let Some(idx) = saved_index {
+                        let _ = queue.play_index(idx);
+                    }
+                    {
+                        let mut s = state.write();
+                        s.queue = track_ids;
+                        s.queue_index = saved_index;
+                    }
                 }
             }
         }
@@ -101,9 +115,11 @@ impl Application {
         };
 
         let mut plugin_mgr = plugin_manager;
-        plugin_mgr.initialize_all(&state.read()).await;
+        let state_guard = state.read();
+        plugin_mgr.initialize_all(&state_guard).await;
+        drop(state_guard);
 
-        let mut app = Self {
+        let app = Self {
             state,
             engine,
             queue,
@@ -332,12 +348,22 @@ impl Application {
 
     async fn cmd_next(&mut self) {
         if let Some(track_id) = self.queue.next() {
+            {
+                let mut state = self.state.write();
+                state.queue = self.queue.queue_from_current();
+                state.queue_index = self.queue.current_index;
+            }
             self.play_track(track_id).await;
         }
     }
 
     async fn cmd_previous(&mut self) {
         if let Some(track_id) = self.queue.previous() {
+            {
+                let mut state = self.state.write();
+                state.queue = self.queue.queue_from_current();
+                state.queue_index = self.queue.current_index;
+            }
             self.play_track(track_id).await;
         }
     }
@@ -379,16 +405,13 @@ impl Application {
 
     async fn cmd_enter(&mut self) {
         let state = self.state.read();
-        match state.current_screen {
-            Screen::Search => {
-                let query = state.search_query.clone();
-                let provider_id = state.active_provider.clone();
-                drop(state);
-                if !query.is_empty() {
-                    self.search(query, provider_id).await;
-                }
+        if let Screen::Search = state.current_screen {
+            let query = state.search_query.clone();
+            let provider_id = state.active_provider.clone();
+            drop(state);
+            if !query.is_empty() {
+                self.search(query, provider_id).await;
             }
-            _ => {}
         }
     }
 
@@ -491,10 +514,7 @@ impl Application {
                 Some(p) => {
                     match p.track(&track_id).await {
                         Ok(track) => {
-                            match p.resolve_stream_url(&track).await {
-                                Ok(url) => Some(url),
-                                Err(_) => None,
-                            }
+                            p.resolve_stream_url(&track).await.ok()
                         }
                         Err(_) => None,
                     }
@@ -509,6 +529,8 @@ impl Application {
             state.playback.status = PlaybackStatus::Playing;
             state.playback.current_track_id = Some(track_id.clone());
             state.playback.position = Duration::ZERO;
+            state.queue = self.queue.queue_from_current();
+            state.queue_index = self.queue.current_index;
 
             if !state.track_cache.contains_key(&track_id) {
                 if let Some(provider) = self.registry.get(&state.active_provider) {
@@ -527,8 +549,8 @@ impl Application {
         self.plugin_manager.shutdown_all().await;
 
         if let Some(ref db) = self.db {
+            let _ = db.save_queue(&self.queue.tracks, self.queue.current_index);
             let state = self.state.read();
-            let _ = db.save_queue(&state.queue, state.queue_index);
             let _ = db.save_setting("volume", &state.playback.volume.to_string());
         }
 

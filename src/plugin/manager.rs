@@ -19,6 +19,15 @@ impl PluginManager {
             loaded: Vec::new(),
         }
     }
+}
+
+impl Default for PluginManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PluginManager {
 
     pub fn register(&mut self, plugin: Box<dyn Plugin>) -> Result<()> {
         let id = plugin.id().to_string();
@@ -44,7 +53,7 @@ impl PluginManager {
         self.plugins.get(id).map(|p| p.as_ref())
     }
 
-    pub fn get_mut<'a>(&'a mut self, id: &str) -> Option<&'a mut (dyn Plugin + 'a)> {
+    pub fn get_mut<'a>(&'a mut self, id: &str) -> Option<&'a mut (dyn Plugin + 'static)> {
         self.plugins.get_mut(id).map(move |p| p.as_mut())
     }
 
@@ -190,6 +199,12 @@ impl TickCounterPlugin {
     }
 }
 
+impl Default for TickCounterPlugin {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl Plugin for TickCounterPlugin {
     fn id(&self) -> &'static str {
@@ -222,7 +237,7 @@ impl Plugin for TickCounterPlugin {
 
     async fn on_tick(&mut self, _state: &mut AppState) -> Result<()> {
         self.tick_count += 1;
-        if self.tick_count % 1000 == 0 {
+        if self.tick_count.is_multiple_of(1000) {
             tracing::debug!("Tick count: {}", self.tick_count);
         }
         Ok(())

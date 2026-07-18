@@ -63,10 +63,8 @@ impl PlayerBar {
             return None;
         }
         let rel_x = x.saturating_sub(area.x);
-        if rel_x < 2 {
-            if state.playback.status != PlaybackStatus::Stopped {
-                return Some(Action::PlayPause);
-            }
+        if rel_x < 2 && state.playback.status != PlaybackStatus::Stopped {
+            return Some(Action::PlayPause);
         }
         let width = area.width;
         if rel_x >= width.saturating_sub(10) && rel_x < width {

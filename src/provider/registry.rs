@@ -16,6 +16,15 @@ impl ProviderRegistry {
             active_provider: String::new(),
         }
     }
+}
+
+impl Default for ProviderRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ProviderRegistry {
 
     pub fn register(&mut self, provider: Box<dyn MusicProvider>) {
         let id = provider.id();
@@ -40,7 +49,7 @@ impl ProviderRegistry {
         self.providers.get(id).map(|p| p.as_ref())
     }
 
-    pub fn get_mut<'a>(&'a mut self, id: &ProviderId) -> Option<&'a mut (dyn MusicProvider + 'a)> {
+    pub fn get_mut<'a>(&'a mut self, id: &ProviderId) -> Option<&'a mut (dyn MusicProvider + 'static)> {
         self.providers.get_mut(id).map(|p| p.as_mut())
     }
 
@@ -84,5 +93,9 @@ impl ProviderRegistry {
 
     pub fn len(&self) -> usize {
         self.providers.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.providers.is_empty()
     }
 }

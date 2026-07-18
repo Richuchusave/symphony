@@ -11,23 +11,30 @@ pub struct Sidebar {
 
 impl Sidebar {
     pub fn new() -> Self {
-        let items = vec![
-            (Screen::Home, "\u{f021c}", "Home"),
-            (Screen::Search, "\u{f0948}", "Search"),
-            (Screen::Library, "\u{f02ed}", "Library"),
-            (Screen::Albums, "\u{f0025}", "Albums"),
-            (Screen::Artists, "\u{f0803}", "Artists"),
-            (Screen::Playlists, "\u{f02cb}", "Playlists"),
-            (Screen::Queue, "\u{f0661}", "Queue"),
-            (Screen::Downloads, "\u{f1d85}", "Downloads"),
-            (Screen::Settings, "\u{f0493}", "Settings"),
-        ];
         Self {
-            items,
+            items: vec![
+                (Screen::Home, "\u{f021c}", "Home"),
+                (Screen::Search, "\u{f0948}", "Search"),
+                (Screen::Library, "\u{f02ed}", "Library"),
+                (Screen::Albums, "\u{f0025}", "Albums"),
+                (Screen::Artists, "\u{f0803}", "Artists"),
+                (Screen::Playlists, "\u{f02cb}", "Playlists"),
+                (Screen::Queue, "\u{f0661}", "Queue"),
+                (Screen::Downloads, "\u{f1d85}", "Downloads"),
+                (Screen::Settings, "\u{f0493}", "Settings"),
+            ],
             selected_index: 0,
         }
     }
+}
 
+impl Default for Sidebar {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Sidebar {
     pub fn render(&self, f: &mut Frame, area: Rect, state: &AppState) {
         let block = Block::default()
             .title(" Symphony ")
